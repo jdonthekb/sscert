@@ -1,9 +1,11 @@
 import tkinter as tk
+from tkinter import simpledialog
+from tkcalendar import DateEntry
 import os
 import sys
 import ctypes
-from tkinter import simpledialog
 from subprocess import Popen, PIPE
+from datetime import datetime, timedelta
 
 def get_script_dir():
     if getattr(sys, 'frozen', False):
@@ -33,11 +35,17 @@ def generate_and_export_cert():
         if not password:
             return
 
+        # Get the selected "NotAfter" date from the DateEntry widget
+        not_after_date = not_after_entry.get_date()
+
+        # Calculate the "NotBefore" date as 2 days before the selected "NotAfter" date
+        not_before_date = not_after_date - timedelta(days=2)
+
         script_dir = get_script_dir()
         export_path = os.path.join(script_dir, f"{friendly_name}.pfx")
         
         command = rf"""
-        $cert = New-SelfSignedCertificate -certstorelocation cert:\localmachine\my -dnsname localhost -FriendlyName '{friendly_name}' -Subject '{friendly_name}' -Type CodeSigningCert;
+        $cert = New-SelfSignedCertificate -certstorelocation cert:\localmachine\my -dnsname localhost -FriendlyName '{friendly_name}' -Subject '{friendly_name}' -Type CodeSigningCert -NotAfter '{not_after_date.strftime('%m/%d/%Y')}' -NotBefore '{not_before_date.strftime('%m/%d/%Y')}';
         $pwd = ConvertTo-SecureString -String '{password}' -Force -AsPlainText;
         $path = 'cert:\localMachine\my\' + $cert.thumbprint;
         Export-PfxCertificate -cert $path -FilePath '{export_path}' -Password $pwd;
@@ -53,17 +61,22 @@ def generate_and_export_cert():
     except Exception as e:
         log_exception(str(e))
 
-appVersion = "v1.1"
+appVersion = "v1.2"
 root = tk.Tk()
-root.title("SSCert" + " " + appVersion + " by " + "Josh Dwight" )
-root.geometry("400x100")
+root.title("SSCert" + " " + appVersion + " by " + "Josh Dwight")
+root.geometry("350x150")  # Adjusted window height for DateEntry widget
 
 tk.Label(root, text="Friendly Name:").pack()
 friendly_name_entry = tk.Entry(root, width=40)
-friendly_name_entry.pack()
+friendly_name_entry.pack(pady=(5, 0))  # Added padding
+
+not_after_label = tk.Label(root, text="NotAfter Date:")
+not_after_label.pack()
+not_after_entry = DateEntry(root, date_pattern="mm/dd/yyyy")
+not_after_entry.pack(pady=(0, 10))  # Added padding
 
 generate_button = tk.Button(root, text="Generate and Export Cert", command=generate_and_export_cert)
-generate_button.pack()
+generate_button.pack(pady=(0, 5))  # Added padding
 
 result_label = tk.Label(root, text="")
 result_label.pack()
